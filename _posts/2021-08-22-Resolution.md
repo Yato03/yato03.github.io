@@ -7,7 +7,7 @@ classes: wide
 header:
   teaser: /assets/images/Resolution-img/resolution_gameplay_screenshot.jpg
   teaser_home_page: true
-  icon: /assets/images/hackthebox.webp
+  icon: /assets/images/unity.png
 categories:
   - Proyectos
 tags:
