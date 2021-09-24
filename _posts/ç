@@ -1,0 +1,104 @@
+---
+layout: single
+title: Blocky - HTB Machine
+excerpt: "Máquina linux de dificultad EASY de la plataforma HackTheBox. Se tratan temas de lectura de ficheros java y sql"
+date: 2021-09-24
+classes: wide
+header:
+  teaser: /assets/images/htb-writeup-blocky/portada-blocky.png
+  teaser_home_page: true
+  icon: /assets/images/hackthebox.webp
+categories:
+  - HTB
+tags:
+  - java
+  - sql
+  - wordpress
+  - easy
+  - linux
+---
+
+![](/assets/images/htb-writeup-blocky/portada-blocky.png)
+
+Blocky es una máquina linux relativamente sencilla. Y con relativamente me refiero a que tiene una solución tan simple que como no la pilles desde el primer momento te va a costar. Si este es tu caso no te preocupes, aquí verás como se resuelve paso a paso y tendrás a tu disposición un índice para ir donde te interesa y sin comerte spoilers. Dicho esto, pongámonos manos a la obra.
+
+## Índice
+* [Fase de reconocimiento](#reconocimiento)
+  * [Reconociento de puertos y servicios](#reconocimiento)
+  * [Reconocimiento de la página web](#reconocimiento-web)
+  * [Fuzzing de la web](#bossNaranja)
+* [Fase de explotación](#)
+* [Escalada de pivilegios](#)
+
+<a id="reconocimiento"></a>
+## Fase de reconocimiento
+
+### Reconocimiento de puertos y servicios
+
+
+Empezaremos utilizando nmap para descubrir los puertos abiertos accesibles(digo accesibles ya que la máquina puede tener más puertos abiertos pero que solo son accesibles desde la misma).
+```bash
+nmap -p- -sS --min-rate 5000 --open -Pn -n -vvvv 10.10.10.37 -oN writeup-scan-ports
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times will be slower.
+Starting Nmap 7.91 ( https://nmap.org ) at 2021-09-24 15:40 CEST
+Initiating SYN Stealth Scan at 15:40
+Scanning 10.10.10.37 [65535 ports]
+Discovered open port 80/tcp on 10.10.10.37
+Discovered open port 21/tcp on 10.10.10.37
+Discovered open port 22/tcp on 10.10.10.37
+Discovered open port 25565/tcp on 10.10.10.37
+Completed SYN Stealth Scan at 15:40, 30.42s elapsed (65535 total ports)
+Nmap scan report for 10.10.10.37
+Host is up, received user-set (1.1s latency).
+Scanned at 2021-09-24 15:40:00 CEST for 30s
+Not shown: 65530 filtered ports, 1 closed port
+Reason: 65530 no-responses and 1 reset
+Some closed ports may be reported as filtered due to --defeat-rst-ratelimit
+PORT      STATE SERVICE   REASON
+21/tcp    open  ftp       syn-ack ttl 63
+22/tcp    open  ssh       syn-ack ttl 63
+80/tcp    open  http      syn-ack ttl 63
+25565/tcp open  minecraft syn-ack ttl 63
+
+Read data files from: /usr/bin/../share/nmap
+Nmap done: 1 IP address (1 host up) scanned in 30.51 seconds
+           Raw packets sent: 131081 (5.768MB) | Rcvd: 30 (1.312KB)
+```
+
+Como podemos observar, hay varios puertos interesantes. En el puerto 21 corre un servicio ftp. Esto nos daría la idea de probar si nos pudieramos identificar con el usuario anonymous y sin contraseña pero en este caso no funciona. También hay un servicio ssh que puede que nos sirva de ayuda más adelante, un servicio http donde se encuentra la página web y por último pero no menos importante, un servidor de minecraft. Este último nos da una pequeña pista de lo que tendremos que hacer después aunque no utilizaremos este puerto.
+
+Una vez escaneados los puertos, escanearemos más en profundidad que servicios usan y sus respectivas versiones.
+
+```bash
+nmap -sC -sV -p21,22,80,25565 -oN targeted 10.10.10.37
+Nmap scan report for 10.10.10.37
+Host is up (0.054s latency).
+
+PORT      STATE SERVICE   VERSION
+21/tcp    open  ftp       ProFTPD 1.3.5a
+22/tcp    open  ssh       OpenSSH 7.2p2 Ubuntu 4ubuntu2.2 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   2048 d6:2b:99:b4:d5:e7:53:ce:2b:fc:b5:d7:9d:79:fb:a2 (RSA)
+|   256 5d:7f:38:95:70:c9:be:ac:67:a0:1e:86:e7:97:84:03 (ECDSA)
+|_  256 09:d5:c2:04:95:1a:90:ef:87:56:25:97:df:83:70:67 (ED25519)
+80/tcp    open  http      Apache httpd 2.4.18 ((Ubuntu))
+|_http-generator: WordPress 4.8
+|_http-server-header: Apache/2.4.18 (Ubuntu)
+|_http-title: BlockyCraft &#8211; Under Construction!
+25565/tcp open  minecraft Minecraft 1.11.2 (Protocol: 127, Message: A Minecraft Server, Users: 0/20)
+Service Info: OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+# Nmap done at Fri Sep 24 13:19:42 2021 -- 1 IP address (1 host up) scanned in 11.28 seconds
+
+```
+
+Lo más importante que hay que destacar del escaneo es que el servidor utiliza un Wordpress de version 4.8. No obstante, si buscamos exploits de esta version o utilizamos herramientas como wpscan nos daremos cuenta de que no existe ninguna vía potencial de explotación. Al igual pasa con el servicio ProFTPD 1.3.5a.
+
+<a id="reconocimiento-web"></a>
+### Reconocimiento de la página web
+
+
+Una vez habiendo escaneado al servidor, es hora de analizar la página manualmente. Como tiene un servicio http corriendo en el puerto 80 apuntamos a la dirección de la máquina desde un navegador.
+
+![](/assets/images/htb-writeup-blocky/pg-principal.PNG)
