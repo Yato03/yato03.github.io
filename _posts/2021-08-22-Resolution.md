@@ -64,6 +64,6 @@ Si llegamos a derrotar a este boss conseguiríamos una gran bonificación y volv
 
 <a id="descargas"></a>
 ## Descargas
-Por último, si quieres descargar el juego lo puedes hacer a través de este link: <a href="assets/images/Resolution-img/Resolution.apk" download>Resolution.apk</a>
+Por último, si quieres descargar el juego lo puedes hacer a través de este link: <a href="../assets/images/Resolution-img/Resolution.apk" download>Resolution.apk</a>
 
 He de mencionar que el juego no funciona en determinados dispositivos debido a una incompatibilidad de la arquitectura del procesador.
