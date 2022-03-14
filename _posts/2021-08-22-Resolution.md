@@ -26,7 +26,7 @@ Resolution es un proyecto hecho en el motor de videojuegos Unity. Es un juego es
   * [Boss Azul](#bossAzul)
   * [Boss Naranja](#bossNaranja)
   * [Final Boss](#finalBoss)
-* Descarga
+* [Descarga](#descargas)
 
 <a id="descripcion"></a>
 ## Descripción
