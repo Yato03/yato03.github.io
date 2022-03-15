@@ -1,0 +1,370 @@
+/* ESTILOS GENERALES */
+
+body{
+    background: #232526;  /* fallback for old browsers */
+    background: -webkit-linear-gradient(to right, #414345, #232526);  /* Chrome 10-25, Safari 5.1-6 */
+    background: linear-gradient(to right, #414345, #232526); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+}
+
+p{
+    color:white;
+}
+
+footer{
+    background-color: #f5f5f5;
+    color: black;
+    text-align: center;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: block;
+    font-family: monospace;
+}
+
+.entrada-completa h1{
+    color: rgb(255, 255, 255);
+    text-align: center;
+    margin-top: 2%;
+    text-decoration: underline 2.5px;
+}
+
+.entrada-completa h3{
+    color: rgb(255, 255, 255);
+    text-align: left;
+    margin-top: 2%;
+    margin-left: 10%;
+    text-decoration: underline 2.5px;
+}
+
+.entrada-completa h4{
+    color: rgb(255, 255, 255);
+    text-align: left;
+    margin-top: 2%;
+    margin-left: 10%;
+    text-decoration: underline 2.5px;
+}
+
+.entrada-completa a{
+    text-decoration: none;
+    color: inherit;
+}
+.entrada-completa .indice{
+    border-color: #2196F3 !important;
+    color: #000!important;
+    background-color: #ddffff!important;
+    border-left: 6px solid;
+}
+
+#blog{
+    visibility: hidden;
+}
+
+/* PARA ORDENADORES */
+
+@media screen and (min-device-width:1001px) { 
+
+    .nav-item{
+        padding-left: 2.5rem !important;
+    }
+
+    .navbar-brand{
+        margin-right: 0rem !important;
+        margin-left: 1rem;
+    }
+
+    footer{
+        line-height: 45px;
+        height: 45px;
+        font-size: 1.2em;
+    }
+
+    #header{
+        float: left;
+        height: 100vh;
+        padding-left: 1em;
+        width: 20em;
+    }
+
+    .container-header{
+        height:inherit;
+    }
+
+    .icon{
+        width: 5em;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+
+    .icon-div{
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        padding-top: 2em;
+        padding-bottom: 1.5em;
+    }
+
+    .p-div h5 {
+        font-size: 1.2em;
+        padding-top: .5em;
+        padding-bottom: 1.5em;
+        color: white;
+    }
+
+    .p-div{
+        padding-left: 10%;
+        padding-bottom: 2em;
+    }
+
+    .redes-div .dropdown{
+        visibility: hidden;
+        height: 0px;
+    }
+
+    .redes-icons{
+        visibility: visible;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .redes-icons div{
+        padding-bottom: 2em;
+    }
+
+    .redes-icons img{
+        width: 4em;
+    }
+
+    hr{ 
+    
+        border:         none !important;
+        border-left:    1px solid hsla(200, 10%, 50%,100) !important;
+        height:         100vh !important;
+        width:          1px; 
+        float: left;      
+    }
+
+    .entrada-div{
+        border-bottom:1px solid  gray ;
+
+        overflow: hidden;
+        height:  10em;
+        display: flex;
+        align-items: center;
+    }
+
+    .entrada-div img{
+        height: 8em;
+    }
+
+    .img-entrada{
+        margin-left: 12%;
+        border: 1px solid rgba(128, 128, 128, 0.514);
+    }
+
+    .texto-entrada{
+        margin-left: 10%;
+        width: 60%;
+    }
+
+    .texto-entrada .titulo{
+        display: flex;
+        align-items: center;
+    }
+
+    .texto-entrada .titulo h3{
+        color: white;
+    }
+
+    .texto-entrada .titulo p{
+        margin-bottom: 0 !important;
+        margin-left: 20%;
+        color: rgb(212, 212, 212);
+    }
+
+    .texto-entrada .descripcion{
+        margin-bottom: 0 !important;
+    }
+
+    #contra-footer{
+        height: 50px;
+    }
+
+    .pg-controller{
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        margin-top: 2%;
+        margin-bottom: 2%;
+    }
+
+    .entrada-completa{
+        overflow: hidden;
+    }
+
+    .entrada-completa p{
+        margin-left: 10%;
+        margin-right: 10%;
+        margin-top: 2%;
+        text-align: justify;
+    }
+
+    .entrada-completa img{
+        width: 60%;
+        margin-left: 20%;
+        margin-right: 20%;
+    }
+
+    .entrada-completa .indice{
+        margin-left: 10%;
+        width: 30%;
+    }
+
+}
+
+/* FORMATO PARA MOVILES */
+@media screen and (max-device-width:1000px){
+
+    body{
+        overflow-x: hidden;
+        overflow-y: scroll;
+    }
+
+    footer{
+        line-height: 2.5em;
+        height: 2.5em;
+        font-size: 1em;
+    }
+
+    #header{
+        height: 6em;
+        display: flex;
+        padding-left: 2%;
+        padding-right: 2%;
+    }
+
+    .container-header{
+        width: 100%;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+
+    .icon{
+        width: 4em;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+
+    .p-div{
+        flex-grow: 2;
+        padding-left: 0.5em;
+        padding-right: 0.5em;
+    }
+
+    .p-div p {
+        font-size: .8em;
+    }
+
+    .p-div h5 {
+        font-size: 1.2em;
+        padding-top: .5em;
+        color: white;
+    }
+
+    .redes-div .dropdown{
+        visibility: visible;
+    }
+
+    .redes-icons{
+        visibility: hidden !important;
+        height: 0px;
+    }
+
+    .redes-icons div{
+        height: 0px;
+        width: 0px;
+    }
+
+    hr{
+        height: 1px;
+        background-color: #ccc !important;
+        border: none;
+        margin:0 !important;
+    }
+
+    .entrada-div{
+        border-bottom:1px solid  gray ;
+        width: 100%;
+        height:  10em;
+        display: flex;
+        align-items: center;
+    }
+
+    .entrada-div img{
+        height: 8em;
+    }
+
+    .img-entrada{
+        margin-left: 4%;
+        border: 1px solid rgba(128, 128, 128, 0.514);
+    }
+
+    .texto-entrada{
+        margin-left: 4%;
+        width: 60%;
+    }
+
+    .texto-entrada .titulo{
+        display: flex;
+        align-items: center;
+    }
+
+    .texto-entrada .titulo h3{
+        color: white;
+    }
+
+    .texto-entrada .titulo p{
+        margin-bottom: 0 !important;
+        margin-left: 10%;
+        color: rgb(212, 212, 212);
+    }
+
+    .texto-entrada .descripcion{
+        margin-bottom: 0 !important;
+        font-size: .7em;
+        margin-right: 5%;
+        text-align: justify;
+    }
+
+    ::-webkit-scrollbar {
+        display: none;
+    }
+
+    #contra-footer{
+        height: 2.8em;
+    }
+
+    .pg-controller{
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        margin-top: 2%;
+        margin-bottom: 2%;
+    }
+
+    .entrada-completa p{
+        margin-left: 10%;
+        margin-right: 10%;
+        margin-top: 5%;
+        text-align: justify;
+    }
+
+    .entrada-completa img{
+        width: 80%;
+        margin-left: 10%;
+        margin-right: 10%;
+    }
+
+}
