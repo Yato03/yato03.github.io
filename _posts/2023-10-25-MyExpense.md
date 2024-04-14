@@ -7,7 +7,7 @@ classes: wide
 header:
   teaser: /assets/images/vh-writeup-myexpense/portada-myexpense.png
   teaser_home_page: true
-  icon: /assets/images/vulhub.png
+  icon: /assets/images/vulnhub.png
 categories:
   - VulnHub
 tags:

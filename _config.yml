@@ -102,8 +102,8 @@ analytics:
 # Site Author
 author:
   name             : "Miguel Hernández"
-  avatar           : "/assets/images/YatoDev.jpg"
-  bio              : "Estudiante de Ingeniería de Software en US"
+  avatar           : "/assets/images/profile-pic.png"
+  bio              : "Estudiante de 3º de Ingeniería de Software en la Universidad de Sevilla"
   location         : "España"
   email            : "miguelhs3523@gmail.com"
   uri              :
@@ -118,9 +118,9 @@ author:
   gitlab           :
   google_plus      :
   keybase          :
-  instagram        : "@yato_03"
+  instagram        : # example: @yato_03
   lastfm           :
-  linkedin         : # "john-doe-12345678" (the last part of your profile url, e.g. https://www.linkedin.com/in/john-doe-12345678)
+  linkedin         : miguel-hernández-677a7020b # "john-doe-12345678" (the last part of your profile url, e.g. https://www.linkedin.com/in/john-doe-12345678)
   pinterest        :
   soundcloud       :
   stackoverflow    : # "123456/username" (the last part of your profile url, e.g. https://stackoverflow.com/users/123456/username)
