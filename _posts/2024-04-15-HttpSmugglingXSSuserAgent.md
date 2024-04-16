@@ -5,7 +5,7 @@ excerpt: "Laboratorio de Portswigger sobre http smuggling"
 date: 2024-04-15
 classes: wide
 header:
-  teaser: /assets/images/portswigger-http-smuggling/teaser.png
+  teaser: /assets/images/portswigger-http-smuggling/teaser.PNG
   teaser_home_page: true
   icon: /assets/images/portswigger.png
 categories:
@@ -16,7 +16,9 @@ tags:
   - bscp
 ---
 
-En este laboratorio de PortSwigger nuestro objetivo será que una víctima ejecuta un `alert(1)` a través de un HTTP Smuggling. Para ello, deberemos de encontrar un XSS e intentar infectar a la víctima a través del HTTP Smuggling.
+En este laboratorio de PortSwigger nuestro objetivo será que una víctima ejecute un `alert(1)` a través de un HTTP Smuggling. Para ello, deberemos de encontrar un XSS e intentar infectar a la víctima a través del HTTP Smuggling.
+
+**Laboratorio**: [HTTP Smuggling to deliver XSS through User Agent](https://portswigger.net/web-security/request-smuggling/exploiting/lab-deliver-reflected-xss)
 
 ## Índice
 - [Índice](#índice)

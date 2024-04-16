@@ -17,6 +17,8 @@ tags:
 
 En este laboratorio de PortSwigger nuestro objetivo será ocasionar un web caché poisoining en el que se ejecute `alert(document.cookie)` en el navegador de la víctima.
 
+**Laboratorio**: [Targeted web cache poisoning using an unknown header](https://portswigger.net/web-security/web-cache-poisoning/exploiting-design-flaws/lab-web-cache-poisoning-targeted-using-an-unknown-header)
+
 ## Índice
 - [Índice](#índice)
 - [Reconocer el web caché poisoning](#reconocer-el-web-caché-poisoning)
