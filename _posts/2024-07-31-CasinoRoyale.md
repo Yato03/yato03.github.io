@@ -1,37 +1,42 @@
 ---
 layout: single
-title: IMF:1 - Vulnhub
-excerpt: "Máquina linux de dificultad MEDIUM de la plataforma Vulnhub. Se tratan temas de Type Juggling, SQLI, FileUpload y Buffer Overflow"
-date: 2024-07-28
+title: Casino Royale - Vulnhub
+excerpt: "Máquina linux de dificultad MEDIUM de la plataforma Vulnhub. Se tratan temas de SQLI, CSRF y permisos SUID"
+date: 2024-08-01
 classes: wide
 header:
-  teaser: /assets/images/vh-writeup-imf/imf_logo.png
+  teaser: /assets/images/vh-writeup-casino-royale/casinoRoyale.png
   teaser_home_page: true
   icon: /assets/images/vulnhub.png
 categories:
   - Vulnhub
 tags:
-  - type juggling 
+  - smtp
   - sqli
-  - file upload
-  - buffer overflow
+  - ftp
+  - suid
+  - csrf
   - medium
   - linux
 ---
+
 <center>
-<img src="/assets/images/vh-writeup-imf/imf_logo.png" width="350"/>
+  <img src="/assets/images/vh-writeup-casino-royale/casinoRoyale.png" width="500"/>
 </center>
 
 <br/>
 
-IMF es una máquina linux de nivel medio. Tiene un comienzo estilo CTF en el cuál hay que salir fuera de la caja a la hora de pensar, aunque el resto es más realista. Tiene varios stages siendo una máquina larga, sin embargo, se intentarán tratar de forma detallada.
+Casino Royale es una máquina Linux de nivel medio que puede ser un reto interesante, pero también puede llevarte a perder tiempo en _rabbit holes_ debido a sus numerosas funcionalidades y páginas que no conducen a nada. A pesar de ello, existen varias formas de solucionar sus desafíos. En este post, compartiré la ruta que seguí, la cual es solo una de las muchas posibles para completar la máquina.
+
+Ya que la enumeración es algo simple y en este caso tedioso, en la mayoría de casos me lo saltaré e iré directamente a las vulnerabilidades explicando cómo llegué a ellas.
+
+Por útlimo, en vez de usar la IP que tuvo mi máquina usaré `casino-royale.local` la cual cobrará tendrá mayor sentido después.
 
 ## Índice
 * [Fase de reconocimiento](#fase-de-reconocimiento)
   * [Reconocimiento de puertos y servicios](#reconocimiento-de-puertos-y-servicios)
-  * [Reconocimiento de la página web](#reconocimiento-de-la-pagina-web)
-* [Login](#login)
-* [CMS](#cms)
+* [LeaderBoard](#leaderboard)
+* [Pokeradmin](#cms)
 * [Intelligence Upload Form](#intelligence-upload-form)
 * [Escalada de privilegios](#escalada-de-privilegios)
   * [Análisis del binario](#analisis-del-binario)
@@ -44,34 +49,51 @@ IMF es una máquina linux de nivel medio. Tiene un comienzo estilo CTF en el cu�
 
 Empezaremos utilizando `nmap` para descubrir los puertos abiertos accesibles(digo accesibles ya que la máquina puede tener más puertos abiertos pero que solo son accesibles desde la misma).
 ```bash
-sudo nmap -p- --open -sS --min-rate 5000 -Pn -n -v 192.168.18.54
-Nmap scan report for 192.168.18.54
-  Host is up (0.00045s latency).
-  Not shown: 65534 filtered tcp ports (no-response)
-  Some closed ports may be reported as filtered due to --defeat-rst-ratelimit
-  PORT   STATE SERVICE
-    80/tcp open  http
-  MAC Address: 08:00:27:A4:D2:C6 (Oracle VirtualBox virtual NIC)
+nmap -p- --open -sS --min-rate 5000 -Pn -n -v -oG allPorts -oN writeup casino-royale.local
+Nmap scan report for casino-royale.local
+Host is up (0.000079s latency).
+Not shown: 65531 closed tcp ports (reset)
+PORT     STATE SERVICE
+21/tcp   open  ftp
+25/tcp   open  smtp
+80/tcp   open  http
+8081/tcp open  blackice-icecap
+MAC Address: 08:00:27:F3:F5:0C (Oracle VirtualBox virtual NIC)
+
 ```
 
-En este caso solo tiene expuesto el puerto 80, así que escanearemos ese puerto para ver el servicio y su versión con `nmap`.
+Una vez hemos visto que puertos están abiertos procedemos cuáles son esos servicios y su versión:
 
 ```bash
-nmap -sC -sV -p80 -oN targeted 192.168.18.54
-PORT   STATE SERVICE VERSION
-   │ 80/tcp open  http    Apache httpd 2.4.18 ((Ubuntu))
-   │ |_http-title: IMF - Homepage
-   │ |_http-server-header: Apache/2.4.18 (Ubuntu)
-   │ MAC Address: 08:00:27:A4:D2:C6 (Oracle VirtualBox virtual NIC)
+nmap -sCV -p21,25,80,8081 -oN targeted casino-royale.local
+Nmap scan report for casino-royale.local
+Host is up (0.00038s latency).
+
+PORT     STATE SERVICE VERSION
+21/tcp   open  ftp     vsftpd 2.0.8 or later
+25/tcp   open  smtp    Postfix smtpd
+|_smtp-commands: casino.localdomain, PIPELINING, SIZE 10240000, VRFY, ETRN, STARTTLS, ENHANCEDSTATUSCODES, 8BITMIME, DSN, SMTPUTF8
+| ssl-cert: Subject: commonName=casino
+| Subject Alternative Name: DNS:casino
+| Not valid before: 2018-11-17T20:14:11
+|_Not valid after:  2028-11-14T20:14:11
+|_ssl-date: TLS randomness does not represent time
+80/tcp   open  http    Apache httpd 2.4.25 ((Debian))
+|_http-server-header: Apache/2.4.25 (Debian)
+| http-robots.txt: 2 disallowed entries 
+|_/cards /kboard
+|_http-title: Site doesn't have a title (text/html).
+8081/tcp open  http    PHP cli server 5.5 or later
+|_http-title: Site doesn't have a title (text/html; charset=UTF-8).
+MAC Address: 08:00:27:F3:F5:0C (Oracle VirtualBox virtual NIC)
 
 ```
 
 Las versiones en este caso no son vulnerables.
 
-<a id="reconocimiento-de-la-pagina-web"></a>
-### Reconocimiento de la página web
+### LeaderBoard
 
-Una vez, escaneado los puertos procedemos a enumerar el servicio `http`.
+Una vez, escaneado los puertos procedemos a enumerar el servicio `http`. Si usamos alguna herramienta como `gobuster` podremos ver que existe un `index.php` (`http://casino-royale.local/index.php`).
 
 ![](/assets/images/vh-writeup-imf/home.png)
 
