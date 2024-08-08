@@ -49,7 +49,7 @@ Por útlimo, en vez de usar la IP que tuvo mi máquina usaré `casino-royale.loc
 Empezaremos utilizando `nmap` para descubrir los puertos abiertos accesibles.
 
 ```bash
-nmap -p- --open -sS --min-rate 5000 -Pn -n -v -oG allPorts -oN writeup casino-royale.local
+nmap -p- --open -sS --min-rate 5000 -Pn -n -v -oG allPorts casino-royale.local
 Nmap scan report for casino-royale.local
 Host is up (0.000079s latency).
 Not shown: 65531 closed tcp ports (reset)
