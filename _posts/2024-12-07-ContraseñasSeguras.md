@@ -82,4 +82,4 @@ El uso de estos algoritmos no son perfectos. Cada uno tiene sus normas para su c
 
 Como hemos visto, hashear las contraseñas con una simple función hash no funciona. Hay que esforzarse algo más e implementar _salt_ y _Key Stretching_ o incluso directamente un algoritmo que ya lo haga por ti. Como he dicho en la introducción, cada día sale una nueva noticia de una empresa que ha sido víctima de un filtrado de datos, y aunque esperemos que nunca sea el caso de nuestra base de datos, tenemos que estar preparados para cualquier escenario.
 
-Espero que te haya servido de algo el post y recuerda recomendar el [post de LinkedIn](https://www.linkedin.com/in/miguel-hern%C3%A1ndez-677a7020b/) si vienes de allí o si no es así, hazlo igualmente que es gratis 🤑.
+Espero que te haya servido de algo el post y recuerda recomendar el [post de LinkedIn](https://www.linkedin.com/posts/miguel-hern%C3%A1ndez-677a7020b_proteger-tus-contrase%C3%B1as-m%C3%A1s-all%C3%A1-del-hash-activity-7271822067111510017-T04u?utm_source=share&utm_medium=member_desktop) si vienes de allí o si no es así, hazlo igualmente que es gratis 🤑.
