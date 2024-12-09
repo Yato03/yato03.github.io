@@ -9,6 +9,7 @@ header:
   teaser_home_page: true
 categories:
   - Vulnerability
+  - Blog
 tags:
   - Broken access control
   - OWASP
