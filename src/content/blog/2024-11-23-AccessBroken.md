@@ -12,21 +12,18 @@ tags:
   - OWASP
 ---
 
-<center>
-  <img src="/image/broken-access-control/lock.jpg" width="500"/>
-</center>
-
-<br/>
-
-El Broken Access Control es la segunda vulnerabilidad más común según el OWASP Top 10. En este post se explicará qué es, por qué es tan común y su fácil solución.
-
 
 ## Índice
 - [Índice](#índice)
+- [Introducción](#introducción)
 - [¿Qué es?](#qué-es)
 - [¿Por qué es tan peligroso y común?](#por-qué-es-tan-peligroso-y-común)
 - [Solución](#solución)
 - [Conclusión](#conclusión)
+
+## Introducción
+
+El Broken Access Control es la segunda vulnerabilidad más común según el OWASP Top 10. En este post se explicará qué es, por qué es tan común y su fácil solución.
 
 ## ¿Qué es?
 
