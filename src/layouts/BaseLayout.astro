@@ -48,6 +48,16 @@ const { title, image } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <title class="sr-only">{`${title} - ${SITE_TAB}`}</title>
+    <script is:inline async src="https://www.googletagmanager.com/gtag/js?id=G-1ZCQTP95QP"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script is:inline>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag('js', new Date());
+      gtag('config', 'G-1ZCQTP95QP', { anonymize_ip: false });
+    </script>
     <script
       data-light={DAISYUI_THEME.light}
       data-dark={DAISYUI_THEME.dark}
