@@ -102,4 +102,10 @@ export const socialIcons = [
     title: "LinkedIn",
     svg: "ri:linkedin-line",
   },
+  {
+    href: "https://x.com/YatoDev03",
+    ariaLabel: "X",
+    title: "X",
+    svg: "ri:twitter-x-line"
+  }
 ];
