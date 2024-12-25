@@ -21,7 +21,6 @@ const { title, description, image } = Astro.props;
 <meta name="generator" content={Astro.generator} />
 
 <!-- Page Specific Metadata -->
-<title>{title}</title>
 <meta name="description" content={description} />
 {image && <meta property="og:image" content={image} />}
 <link rel="canonical" href={canonicalURL.toString()} />
