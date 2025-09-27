@@ -11,7 +11,7 @@ export const DATE_FORMAT = "ddd DD MMM YYYY";
 // User profile information
 export const USER_NAME = "YatoDev";
 export const USER_SITE = "https://yato03.github.io";
-export const USER_AVATAR = "/profile-pic.png";
+export const USER_AVATAR = "/profile-pic-v2.png";
 
 // Server and transition settings
 export const SERVER_URL = "https://yato03.github.io";
