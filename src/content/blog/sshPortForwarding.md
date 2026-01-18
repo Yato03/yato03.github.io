@@ -6,6 +6,7 @@ pubDate: 2026-01-19
 image: /image/ssh-port-forwarding/home.jpg
 categories:
   - Blog
+  - OSCP
 tags:
   - ssh
   - port forwarding
