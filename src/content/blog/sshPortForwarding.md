@@ -1,6 +1,6 @@
 ---
 title: "Cómo hacer Port Forwarding con SSH"
-description: "Cómo hacer Port Forwarding con SSH"
+description: "Aprende a conectar redes y saltar restricciones mediante túneles SSH. Guía práctica sobre Local, Remote y Dynamic Port Forwarding con ejemplos de configuración."
 date: 2026-01-19
 pubDate: 2026-01-19
 image: /image/ssh-port-forwarding/home.jpg
